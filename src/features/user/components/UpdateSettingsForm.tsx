@@ -1,7 +1,7 @@
 // src/features/user/components/UpdateSettingsForm.tsx
 import { useForm } from 'react-hook-form';
-import type { Profile } from '../../auth/types/auth.types';
 import Button from '../../../shared/components/ui/Button';
+import type { Profile } from '../types/user.types';
 
 type FormData = {
   notifications_enabled: boolean;
@@ -48,8 +48,8 @@ export const UpdateSettingsForm = ({ profile, onSave, onCancel }: UpdateSettings
         </div>
       </div>
       <div className="mt-6 flex items-center justify-end gap-x-4">
-        <Button type="button" onClick={onCancel} className="!w-auto bg-transparent text-gray-700 hover:bg-gray-100">Cancel</Button>
-        <Button type="submit" className="!w-auto">Save</Button>
+        <Button type="button" onClick={onCancel} className="!w-auto bg-red-400 text-white hover:bg-red-500">Cancel</Button>
+        <Button type="submit" className="!w-auto hover:bg-gray-800">Save</Button>
       </div>
     </form>
   );

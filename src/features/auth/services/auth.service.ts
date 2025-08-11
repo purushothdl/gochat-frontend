@@ -1,7 +1,8 @@
 // src/features/auth/services/auth.service.ts
 import apiClient from '../../../shared/api/apiClient';
 import type { ApiResponse, MessageResponse } from '../../../shared/types/api.types';
-import type { AuthPayload, Device, MePayload, Profile, RefreshPayload } from '../types/auth.types';
+import type { Profile } from '../../user/types/user.types';
+import type { AuthPayload, Device, MePayload, RefreshPayload } from '../types/auth.types';
 
 // Note: Define parameter types for each function
 type RegisterData = { name: string; email: string; password: string };

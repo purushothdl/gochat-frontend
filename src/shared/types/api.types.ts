@@ -4,6 +4,19 @@ export interface ApiResponse<T> {
     data: T;
   }
   
-  export interface MessageResponse {
+export interface MessageResponse {
     message: string;
   }
+  
+export interface ValidationErrors {
+[field: string]: string;
+}
+
+export interface ApiErrorResponse {
+success: boolean;
+data?: ValidationErrors; 
+error: {
+    code: string;
+    message: string;
+};
+}
