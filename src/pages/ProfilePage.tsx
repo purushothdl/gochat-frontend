@@ -29,7 +29,7 @@ const SettingsListItem = ({
   isDestructive = false,
 }: {
   title: string;
-  subtitle:string;
+  subtitle: string;
   buttonText: string;
   onButtonClick: () => void;
   isDestructive?: boolean;
@@ -41,11 +41,10 @@ const SettingsListItem = ({
     </div>
     <Button
       onClick={onButtonClick}
-      className={`!w-full sm:!w-32 !py-2 !px-4 text-sm ${
-        isDestructive
-          ? 'bg-red-500 text-white hover:bg-red-600'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
+      className={`!w-full sm:!w-32 !py-2 !px-4 text-sm ${isDestructive
+        ? 'bg-red-500 text-white hover:bg-red-600'
+        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
     >
       {buttonText}
     </Button>
@@ -63,6 +62,16 @@ const ProfilePage = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImagePopupOpen, setIsImagePopupOpen] = useState(false);
+
+  // Disable scrolling when the popup is open
+  useEffect(() => {
+    if (isImagePopupOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }, [isImagePopupOpen]);
 
   useEffect(() => {
     if (!profile) {
@@ -145,19 +154,42 @@ const ProfilePage = () => {
 
   return (
     <div className="max-w-3xl mx-auto py-10 space-y-8">
+      {/* Image Popup */}
+      {isImagePopupOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 h-screen">
+          <div className="relative">
+            <img src={profile.image_url} alt="Profile" className="max-w-[90vw] max-h-[90vh] rounded-lg" />
+            <button
+              type="button"
+              onClick={() => setIsImagePopupOpen(false)}
+              className="absolute top-2 right-2 bg-black/50 rounded-full p-2 shadow-sm hover:bg-black/70 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- PROFILE CARD --- */}
       <div className="bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex justify-between items-start">
           <div className="flex items-center space-x-4">
-            <div className="relative group" onClick={() => !isUploadingImage && fileInputRef.current?.click()}>
+            <div className="relative group" onClick={() => !isUploadingImage && setIsImagePopupOpen(true)}>
               <Avatar src={profile.image_url} name={profile.name} className="h-20 w-20 text-3xl" />
-              <div className="absolute inset-0 bg-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 transition-opacity cursor-pointer">
-                {isUploadingImage ? (
-                  <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <p className="text-white text-xs font-bold">Change</p>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+              </button>
             </div>
             <input
               type="file"

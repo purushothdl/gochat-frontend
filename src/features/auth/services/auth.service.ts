@@ -1,5 +1,7 @@
 // src/features/auth/services/auth.service.ts
+import axios from 'axios';
 import apiClient from '../../../shared/api/apiClient';
+import config from '../../../shared/config';
 import type { ApiResponse, MessageResponse } from '../../../shared/types/api.types';
 import type { Profile } from '../../user/types/user.types';
 import type { AuthPayload, Device, MePayload, RefreshPayload } from '../types/auth.types';
@@ -34,7 +36,13 @@ const resetPassword = async (data: ResetPasswordData) => {
 };
 
 const refresh = async () => {
-    const response = await apiClient.post<ApiResponse<RefreshPayload>>('/auth/refresh');
+    // Create a separate axios instance for refresh to avoid interceptor loops
+    const refreshClient = axios.create({
+      baseURL: config.apiUrl,
+      withCredentials: true,
+    });
+    
+    const response = await refreshClient.post<ApiResponse<RefreshPayload>>('/auth/refresh');
     return response.data.data;
   };
 

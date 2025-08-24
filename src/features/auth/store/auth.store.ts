@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
         set({ user: cacheBustedUser, isAuthenticated: !!cacheBustedUser });
       },
       setToken: (token) => {
-        set({ token });
+        set({ token, isAuthenticated: !!token });
       },
       updateUserProfile: (updatedData) => {
         set((state) => {
@@ -56,7 +56,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ token: state.token }),
+      // Don't persist anything - always get fresh token from cookies
+      partialize: () => ({}),
     }
   )
 );

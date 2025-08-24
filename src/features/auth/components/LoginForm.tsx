@@ -31,15 +31,15 @@ export const LoginForm = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Step 1: Login to get the token.
+      // Step 1: Login - backend sets tokens in cookies
       const { access_token } = await authService.login(data);
       setToken(access_token);
 
-      // Step 2: Fetch the full profile using the new token.
+      // Step 2: Fetch the full profile using the new token
       const profile = await userService.getProfile();
       setUser(profile);
 
-      // Step 3: Navigate.
+      // Step 3: Navigate
       navigate('/profile');
     } catch (err) {
       setError('Invalid credentials. Please try again.');
