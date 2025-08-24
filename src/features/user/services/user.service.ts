@@ -18,6 +18,20 @@ const updateProfile = async (data: UpdateProfileData): Promise<Profile> => {
   return response.data.data.user;
 };
 
+type UpdateProfileImageData = { job_id: string };
+
+const updateProfileImage = async (image: File): Promise<UpdateProfileImageData> => {
+  const formData = new FormData();
+  formData.append('image', image);
+
+  const response = await apiClient.put<ApiResponse<UpdateProfileImageData>>(
+    '/user/profile/image',
+    formData
+  );
+
+  return response.data.data;
+};
+
 const updateSettings = async (data: UpdateSettingsData): Promise<UserSettings> => {
   const response = await apiClient.put<ApiResponse<UpdateSettingsResponse>>('/user/settings', data);
   return response.data.data.settings;
@@ -32,4 +46,5 @@ export const userService = {
   updateProfile,
   updateSettings,
   changePassword,
+  updateProfileImage,
 };

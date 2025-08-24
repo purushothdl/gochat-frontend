@@ -1,15 +1,30 @@
 // src/features/auth/store/auth.store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User } from '../../user/types/user.types';
+import type { Profile } from '../../user/types/user.types';
 
 type AuthState = {
-  user: User | null;
+  user: Profile | null;
   token: string | null;
   isAuthenticated: boolean;
-  setUser: (user: User | null, token: string | null) => void;
-  setToken: (token: string) => void;
+  isInitializing: boolean; // <-- ADD THIS
+  setInitializing: (status: boolean) => void; 
+  setUser: (user: Profile | null) => void;
+  setToken: (token: string | null) => void;
+  updateUserProfile: (updatedData: Partial<Profile>) => void;
   logout: () => void;
+};
+
+// ... (keep the bustCache helper function from the previous fix)
+const bustCache = (profile: Profile | null): Profile | null => {
+  if (profile && profile.image_url) {
+    const baseUrl = profile.image_url.split('?')[0];
+    return {
+      ...profile,
+      image_url: `${baseUrl}?v=${new Date().getTime()}`,
+    };
+  }
+  return profile;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -18,11 +33,22 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      setUser: (user, token) => {
-        set({ user, token, isAuthenticated: !!user });
+      isInitializing: true, 
+      setInitializing: (status) => set({ isInitializing: status }), 
+      setUser: (user) => {
+        const cacheBustedUser = bustCache(user);
+        set({ user: cacheBustedUser, isAuthenticated: !!cacheBustedUser });
       },
       setToken: (token) => {
         set({ token });
+      },
+      updateUserProfile: (updatedData) => {
+        set((state) => {
+          if (!state.user) return {};
+          const updatedUser = { ...state.user, ...updatedData };
+          const cacheBustedUser = bustCache(updatedUser);
+          return { user: cacheBustedUser };
+        });
       },
       logout: () => {
         set({ user: null, token: null, isAuthenticated: false });
@@ -30,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({ token: state.token }),
     }
   )
 );

@@ -1,19 +1,26 @@
 // src/pages/ProfilePage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// Global State & Services
 import { useAuthStore } from '../features/auth/store/auth.store';
 import { authService } from '../features/auth/services/auth.service';
-import { userService } from '../features/user/services/user.service'; 
+import { userService } from '../features/user/services/user.service';
+import { toast } from '../shared/components/ui/toast';
+
+// UI Components
 import { SessionsManager } from '../features/auth/components/SessionsManager';
 import { UpdateProfileForm } from '../features/user/components/UpdateProfileForm';
 import { UpdateSettingsForm } from '../features/user/components/UpdateSettingsForm';
+import { ChangePasswordForm } from '../features/user/components/ChangePasswordForm';
 import Button from '../shared/components/ui/Button';
 import Avatar from '../shared/components/ui/Avatar';
+
+// Utils & Types
 import { formatDate } from '../shared/utils/date.utils';
-import { ChangePasswordForm } from '../features/user/components/ChangePasswordForm';
 import type { Profile } from '../features/user/types/user.types';
 
-
+// Reusable list item component for the sign out section
 const SettingsListItem = ({
   title,
   subtitle,
@@ -22,7 +29,7 @@ const SettingsListItem = ({
   isDestructive = false,
 }: {
   title: string;
-  subtitle: string;
+  subtitle:string;
   buttonText: string;
   onButtonClick: () => void;
   isDestructive?: boolean;
@@ -36,7 +43,7 @@ const SettingsListItem = ({
       onClick={onButtonClick}
       className={`!w-full sm:!w-32 !py-2 !px-4 text-sm ${
         isDestructive
-          ? 'bg-red-300 text-red-800 hover:bg-red-500'
+          ? 'bg-red-500 text-white hover:bg-red-600'
           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
       }`}
     >
@@ -45,55 +52,75 @@ const SettingsListItem = ({
   </div>
 );
 
+
 const ProfilePage = () => {
+  const profile = useAuthStore((s) => s.user);
   const globalLogout = useAuthStore((s) => s.logout);
+  const updateUserProfile = useAuthStore((s) => s.updateUserProfile);
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setProfile(await userService.getProfile());
-      } catch (error) {
-        console.error('Failed to fetch profile', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProfile();
-  }, []);
+    if (!profile) {
+      userService.getProfile().catch(() => {
+        toast.error("Session invalid. Please log in again.");
+        globalLogout();
+        navigate('/login');
+      });
+    }
+  }, [profile, globalLogout, navigate]);
+
+  useEffect(() => {
+    if (isUploadingImage) {
+      setIsUploadingImage(false);
+    }
+  }, [profile?.image_url]);
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    toast.info('Uploading image...');
+
+    try {
+      await userService.updateProfileImage(file);
+    } catch (error) {
+      toast.error('Upload failed. Please try a different image.');
+      setIsUploadingImage(false);
+    }
+    event.target.value = '';
+  };
 
   const handleProfileSave = async (data: Profile) => {
     try {
-        const updatedProfile = await userService.updateProfile({ name: data.name });
-        setProfile(updatedProfile);
-        setIsEditingProfile(false);
-    } catch(error) {
-        alert("Failed to update profile.");
+      const updatedProfile = await userService.updateProfile({ name: data.name });
+      updateUserProfile(updatedProfile);
+      toast.success('Profile updated successfully!');
+      setIsEditingProfile(false);
+    } catch (error) {
+      toast.error('Failed to update profile.');
     }
   };
 
   const handleSettingsSave = async (data: Profile) => {
-      try {
-          // Pass only the settings part to the service
-          const updatedSettings = await userService.updateSettings(data.settings);
-          if (profile) {
-            setProfile({ ...profile, settings: updatedSettings });
-        }
-        setIsEditingSettings(false);
-      } catch(error) {
-          alert("Failed to update settings.");
-      }
+    try {
+      const updatedSettings = await userService.updateSettings(data.settings);
+      updateUserProfile({ settings: updatedSettings });
+      toast.success('Settings updated successfully!');
+      setIsEditingSettings(false);
+    } catch (error) {
+      toast.error('Failed to update settings.');
+    }
   };
 
   const handleLogoutCurrentDevice = async () => {
     try {
       await authService.logout();
-    } catch (error) {
-      console.error("Backend logout failed, clearing local session.", error);
     } finally {
       globalLogout();
       navigate('/login');
@@ -107,113 +134,130 @@ const ProfilePage = () => {
         globalLogout();
         navigate('/login');
       } catch (err) {
-        alert('Failed to log out from all devices.');
+        toast.error('Failed to log out from all devices.');
       }
     }
   };
 
-  if (isLoading) return <div className="text-center text-gray-500">Loading...</div>;
-  if (!profile) return <div className="text-center text-red-500">Could not load profile.</div>;
+  if (!profile) {
+    return <div className="text-center text-gray-500">Loading profile...</div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto py-10 space-y-8">
-      {/* Profile Card */}
+      {/* --- PROFILE CARD --- */}
       <div className="bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex justify-between items-start">
-            <div className="flex items-center space-x-4">
-                <Avatar src={profile.image_url} name={profile.name} className="h-20 w-20 text-3xl"/>
-                <div>
-                    <h2 className="text-xl font-bold text-gray-900">{profile.name}</h2>
-                    <p className="text-sm text-gray-600">{profile.email}</p>
-                </div>
+          <div className="flex items-center space-x-4">
+            <div className="relative group" onClick={() => !isUploadingImage && fileInputRef.current?.click()}>
+              <Avatar src={profile.image_url} name={profile.name} className="h-20 w-20 text-3xl" />
+              <div className="absolute inset-0 bg-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 transition-opacity cursor-pointer">
+                {isUploadingImage ? (
+                  <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <p className="text-white text-xs font-bold">Change</p>
+                )}
+              </div>
             </div>
-            {!isEditingProfile && (
-                <button onClick={() => setIsEditingProfile(true)} className="font-semibold text-indigo-600 hover:text-indigo-500">Edit</button>
-            )}
-        </div>
-        <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-            {isEditingProfile ? (
-                <UpdateProfileForm profile={profile} onSave={handleProfileSave} onCancel={() => setIsEditingProfile(false)} />
-            ) : (
-                <dl className="sm:divide-y sm:divide-gray-200">
-                    <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Joined at</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{formatDate(profile.created_at)}</dd>
-                    </div>
-                    <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Last login</dt>
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{profile.last_login ? new Date(profile.last_login).toLocaleString() : 'N/A'}</dd>
-                    </div>
-                </dl>
-            )}
-        </div>
-      </div>
-
-      {/* Settings Card */}
-      <div className="bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6 flex justify-between items-start">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept="image/png, image/jpeg, image/webp"
+              disabled={isUploadingImage}
+            />
             <div>
-                <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
-                <p className="mt-1 text-sm text-gray-600">Your preferences for the application.</p>
+              <h2 className="text-xl font-bold text-gray-900">{profile.name}</h2>
+              <p className="text-sm text-gray-600">{profile.email}</p>
             </div>
-             {!isEditingSettings && (
-                <button onClick={() => setIsEditingSettings(true)} className="font-semibold text-indigo-600 hover:text-indigo-500">Edit</button>
-            )}
+          </div>
+          {!isEditingProfile && (
+            <button onClick={() => setIsEditingProfile(true)} className="font-semibold text-indigo-600 hover:text-indigo-500">Edit</button>
+          )}
         </div>
         <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-             {isEditingSettings ? (
-                <UpdateSettingsForm profile={profile} onSave={handleSettingsSave} onCancel={() => setIsEditingSettings(false)} />
-             ) : (
-                <dl className="sm:divide-y sm:divide-gray-200">
-                    <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Notifications</dt>
-                        {/* THE FIX IS HERE */}
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{profile.settings?.notifications_enabled ? 'Enabled' : 'Disabled'}</dd>
-                    </div>
-                    <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">Language</dt>
-                        {/* AND HERE - using ?? for a default value */}
-                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 uppercase">{profile.settings?.language ?? 'N/A'}</dd>
-                    </div>
-                </dl>
-             )}
+          {isEditingProfile ? (
+            <UpdateProfileForm profile={profile} onSave={handleProfileSave} onCancel={() => setIsEditingProfile(false)} />
+          ) : (
+            <dl className="sm:divide-y sm:divide-gray-200">
+              <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Joined at</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{formatDate(profile.created_at)}</dd>
+              </div>
+              <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Last login</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{profile.last_login ? new Date(profile.last_login).toLocaleString() : 'N/A'}</dd>
+              </div>
+            </dl>
+          )}
         </div>
       </div>
-      
-      {/* Other cards remain the same */}
+
+      {/* --- SETTINGS CARD --- */}
       <div className="bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
-          <div className="px-4 py-5 sm:px-6">
-              <h2 className="text-lg font-semibold text-gray-900">Password & Security</h2>
-              <p className="mt-1 text-sm text-gray-600">Change your password and manage active sessions.</p>
+        <div className="px-4 py-5 sm:px-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
+            <p className="mt-1 text-sm text-gray-600">Your preferences for the application.</p>
           </div>
-          <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-              <h3 className="text-base font-semibold text-gray-800 mb-4">Change Password</h3>
-              <ChangePasswordForm />
-          </div>
-          <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-              <h3 className="text-base font-semibold text-gray-800 mb-2">Active Sessions</h3>
-              <SessionsManager />
-          </div>
+          {!isEditingSettings && (
+            <button onClick={() => setIsEditingSettings(true)} className="font-semibold text-indigo-600 hover:text-indigo-500">Edit</button>
+          )}
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+          {isEditingSettings ? (
+            <UpdateSettingsForm profile={profile} onSave={handleSettingsSave} onCancel={() => setIsEditingSettings(false)} />
+          ) : (
+            <dl className="sm:divide-y sm:divide-gray-200">
+              <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Notifications</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{profile.settings?.notifications_enabled ? 'Enabled' : 'Disabled'}</dd>
+              </div>
+              <div className="py-2 sm:py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Language</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 uppercase">{profile.settings?.language ?? 'N/A'}</dd>
+              </div>
+            </dl>
+          )}
+        </div>
       </div>
 
+      {/* --- PASSWORD & SECURITY CARD --- */}
+      <div className="bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h2 className="text-lg font-semibold text-gray-900">Password & Security</h2>
+          <p className="mt-1 text-sm text-gray-600">Change your password and manage active sessions.</p>
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+          <h3 className="text-base font-semibold text-gray-800 mb-4">Change Password</h3>
+          <ChangePasswordForm />
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+          <h3 className="text-base font-semibold text-gray-800 mb-2">Active Sessions</h3>
+          <SessionsManager />
+        </div>
+      </div>
+
+      {/* --- SIGN OUT CARD --- */}
       <div className="bg-white shadow-sm ring-1 ring-gray-200 sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6">
           <h2 className="text-lg font-semibold text-gray-900">Sign Out</h2>
         </div>
         <div className="border-t border-gray-200 px-4 sm:px-6 divide-y divide-gray-200">
-           <SettingsListItem
-              title="Sign out of this device"
-              subtitle="You will be required to sign in again on this device."
-              buttonText="Sign out"
-              onButtonClick={handleLogoutCurrentDevice}
-           />
-           <SettingsListItem
-              title="Sign out of all other devices"
-              subtitle="This will sign you out from all active sessions except this one."
-              buttonText="Sign out all"
-              onButtonClick={handleLogoutAll}
-              isDestructive
-           />
+          <SettingsListItem
+            title="Sign out of this device"
+            subtitle="You will be required to sign in again on this device."
+            buttonText="Sign out"
+            onButtonClick={handleLogoutCurrentDevice}
+          />
+          <SettingsListItem
+            title="Sign out of all other devices"
+            subtitle="This will sign you out from all active sessions except this one."
+            buttonText="Sign out all"
+            onButtonClick={handleLogoutAll}
+            isDestructive
+          />
         </div>
       </div>
     </div>
